@@ -36,7 +36,7 @@ RTC_CONFIGURATION = RTCConfiguration(
 )
 
 def load_label_encoder():
-    le_total = pickle.loads(open(r".\le_total.pickle", "rb").read())
+    le_total = pickle.loads(open(r"./le_total.pickle", "rb").read())
     return le_total
 
 # model class
