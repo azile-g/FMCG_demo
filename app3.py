@@ -36,7 +36,7 @@ RTC_CONFIGURATION = RTCConfiguration(
 )
 
 def load_label_encoder():
-    le_total = pickle.loads(open(r"./le_total.pickle", "rb").read())
+    le_total = pickle.loads(open(r"le_total.pickle", "rb").read())
     return le_total
 
 # model class
@@ -87,7 +87,7 @@ def load_model():
     resnet = resnet50(pretrained=True)
     model = ObjectDetector(resnet, len(le_total.classes_))
     
-    model.load_state_dict(torch.load(r".\model_state.pt",map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(r"model_state.pt",map_location=torch.device('cpu')))
     model.eval()
     return model
 
@@ -155,7 +155,7 @@ if format_name == format_list[0]:
                 label_total = le_total.inverse_transform(i_total)[0]
                 label = label_total
 
-                with open(r".\writer\Label.txt", "w") as text_file:
+                with open(r"writer\Label.txt", "w") as text_file:
                     text_file.write(f"{label}")
                 
                 orig = imutils.resize(orig, width=600)
@@ -170,7 +170,7 @@ if format_name == format_list[0]:
                 (0, 255, 0), 2)
 
                 #put frames into writer folder
-                filepath = r".\writer\Img.png"
+                filepath = r"writer\Img.png"
                 cv2.imwrite(filepath, orig)
 
                 cv2.putText(orig, label, (startX, y), cv2.FONT_HERSHEY_SIMPLEX,
@@ -218,10 +218,10 @@ if format_name == format_list[0]:
                 #st.write(key_lst[-1])
                 labels_placeholder.text_input("Object Label:", f"{label_value}", key = key_lst[-1])
     elif st.session_state.page == 2: 
-        with open(r".\writer\Label.txt") as f:
+        with open(r"writer\Label.txt") as f:
             contents = f.read()
         st.text_input("Label of the object:", f"{contents}")
-        st.image(r".\writer\Img.png")
+        st.image(r"writer\Img.png")
         st.button("Restart the video capture?", on_click = restart)
     
 if format_name == format_list[1]: 
