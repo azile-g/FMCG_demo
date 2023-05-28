@@ -8,3 +8,4 @@ streamlit==1.17.0
 streamlit_webrtc==0.45.0
 torch==2.0.0
 torchvision==0.15.1
+scikit-learn==0.24.1
