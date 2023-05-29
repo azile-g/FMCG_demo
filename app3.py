@@ -6,6 +6,8 @@ import datetime
 import queue
 from typing import List, NamedTuple
 import threading
+import os
+import logging
 
 #Model handling
 import torch
@@ -16,6 +18,7 @@ from torchvision import transforms
 #Streamlit-related
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
+from twilio.rest import Client
 
 #Image and video data handling
 import av
@@ -25,15 +28,27 @@ from PIL import Image
 
 st.set_page_config(page_title="FMCG Food Items Recognition Model", page_icon="🧇")
 
+logger = logging.getLogger(__name__)
+
 CONFIGS = {
     "DEVICE": "cuda" if torch.cuda.is_available() else "cpu",
     "IMG_MEAN": [0.485, 0.456, 0.406],
     "IMG_STD": [0.229, 0.224, 0.225],
 }
 
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
+def get_ice_servers():
+    # Ref: https://www.twilio.com/docs/stun-turn/api
+    try:
+        account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+        auth_token = os.environ["TWILIO_AUTH_TOKEN"]
+    except KeyError:
+        logger.warning(
+            "Twilio credentials are not set. Fallback to a free STUN server from Google."  # noqa: E501
+        )
+        return [{"urls": ["stun:stun.l.google.com:19302"]}]
+    client = Client(account_sid, auth_token)
+    token = client.tokens.create()
+    return token.ice_servers
 
 def load_label_encoder():
     le_total = pickle.loads(open(r"le_total.pickle", "rb").read())
@@ -200,7 +215,7 @@ if format_name == format_list[0]:
             mode=WebRtcMode.SENDRECV,
             video_frame_callback=video_frame_callback,
             media_stream_constraints={"video": True, "audio": False},
-            rtc_configuration=RTC_CONFIGURATION,
+            rtc_configuration={"iceServers": get_ice_servers()},
             async_processing=True,
         )
         result = []
