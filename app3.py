@@ -242,9 +242,9 @@ if format_name == format_list[0]:
                 labels_placeholder.text_input("Most Recent Object Label Logged:", "")
             
             submit_button = st.button("Submit and restart video capture?", on_click=restart)
-            relab_button = st.button("I need to relabel this object")
-            if relab_button: 
-                st.session_state.page += 1
+            relab_button = st.button("I need to relabel this object", on_click=nextpage)
+            #if relab_button: 
+            #    st.session_state.page += 1
     
     elif st.session_state.page == 2: 
         with open(r"writer\Label.txt") as f:
