@@ -8,7 +8,7 @@ from typing import List, NamedTuple
 import threading
 import os
 import logging
-import pyautogui
+#import pyautogui
 
 #Model handling
 import torch
@@ -127,7 +127,7 @@ if format_name == format_list[0]:
     def nextpage(): st.session_state.page += 1
     def restart(): 
         st.session_state.page = 0
-        pyautogui.hotkey("ctrl", "F5")
+        st.experimental_rerun()
 
     placeholder = st.empty()
     st.button("Next",on_click=nextpage,disabled=(st.session_state.page > 3))
