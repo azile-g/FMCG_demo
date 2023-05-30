@@ -244,7 +244,7 @@ if format_name == format_list[0]:
             submit_button = st.button("Submit and restart video capture?", on_click=restart)
             relab_button = st.button("I need to relabel this object")
             if relab_button: 
-                st.session_state.page = 2
+                st.session_state.page += 1
     
     elif st.session_state.page == 2: 
         with open(r"writer\Label.txt") as f:
