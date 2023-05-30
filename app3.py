@@ -8,7 +8,7 @@ from typing import List, NamedTuple
 import threading
 import os
 import logging
-#import pyautogui
+import glob
 
 #Model handling
 import torch
@@ -132,7 +132,7 @@ if format_name == format_list[0]:
         #st.experimental_rerun()
 
     placeholder = st.empty()
-    st.button("Next",on_click=nextpage,disabled=(st.session_state.page > 3))
+    st.button("Next",on_click=nextpage,disabled=(st.session_state.page >= 1))
 
     if st.session_state.page == 0:
 
@@ -140,9 +140,11 @@ if format_name == format_list[0]:
         st.text("Insert instructions here")
 
     elif st.session_state.page == 1: 
-        #conf_threshold = st.slider("Confidence threshold", 0.0, 1.0, 0.5, 0.05)
-        ice_complete_time = datetime.datetime.now()
-        label_value = 0
+        files = glob.glob('/writer/*')
+        print(files)
+        for f in files:
+            print("here")
+            os.remove(f)
 
         class Detection(NamedTuple):
             label: str
@@ -151,73 +153,63 @@ if format_name == format_list[0]:
         result_q: "queue.Queue[List[Detection]]" = queue.Queue()
 
         def video_frame_callback(frame: av.VideoFrame): 
-            global ice_complete_time
-            if webrtc_ctx.state.playing and ice_complete_time is None:
-                ice_complete_time = datetime.datetime.now()
-                print("ICE connection state complete time is:", ice_complete_time)
-            now = datetime.datetime.now()
-            while ice_complete_time+datetime.timedelta(0, 4) > now:
-                frame = frame.to_image()
-                frame = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
-                frame = imutils.resize(frame, width=400)
-                orig = frame.copy()
-                frame = cv2.resize(frame, (224, 224))
-                frame = frame.transpose((2, 0, 1))  
-                frame = torch.from_numpy(frame)
-                frame = transforms_test(frame).to(CONFIGS['DEVICE'])
-                frame = frame.unsqueeze(0)
-                # run inference
-                (boxPreds, labelPreds_total) = model(frame)
-                (startX, startY, endX, endY) = boxPreds[0]
-                # determine the class label with the largest predicted probability
-                labelPreds_total = torch.nn.Softmax(dim=-1)(labelPreds_total)
-                i_total = labelPreds_total.argmax(dim=-1).cpu()
-                label_total = le_total.inverse_transform(i_total)[0]
-                label = label_total
+            frame = frame.to_image()
+            frame = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
+            frame = imutils.resize(frame, width=400)
+            orig = frame.copy()
+            frame = cv2.resize(frame, (224, 224))
+            frame = frame.transpose((2, 0, 1))  
+            frame = torch.from_numpy(frame)
+            frame = transforms_test(frame).to(CONFIGS['DEVICE'])
+            frame = frame.unsqueeze(0)
+            # run inference
+            (boxPreds, labelPreds_total) = model(frame)
+            (startX, startY, endX, endY) = boxPreds[0]
+            # determine the class label with the largest predicted probability
+            labelPreds_total = torch.nn.Softmax(dim=-1)(labelPreds_total)
+            i_total = labelPreds_total.argmax(dim=-1).cpu()
+            label_total = le_total.inverse_transform(i_total)[0]
+            label = label_total
+            
+            orig = imutils.resize(orig, width=600)
+            (h, w) = orig.shape[:2]
+            startX = int(startX * w)
+            startY = int(startY * h)
+            endX = int(endX * w)
+            endY = int(endY * h)
 
-                with open(r"writer\Label.txt", "w") as text_file:
-                    text_file.write(f"{label}")
-                
-                orig = imutils.resize(orig, width=600)
-                (h, w) = orig.shape[:2]
-                startX = int(startX * w)
-                startY = int(startY * h)
-                endX = int(endX * w)
-                endY = int(endY * h)
+            y = startY - 10 if startY - 10 > 10 else startY + 10
+            cv2.rectangle(orig, (startX, startY), (endX, endY),
+            (0, 255, 0), 2)
 
-                y = startY - 10 if startY - 10 > 10 else startY + 10
-                cv2.rectangle(orig, (startX, startY), (endX, endY),
-                (0, 255, 0), 2)
+            #put frames into writer folder
+            filepath = r"writer\Img.png"
+            cv2.imwrite(filepath, orig)
 
-                #put frames into writer folder
-                filepath = r"writer\Img.png"
-                cv2.imwrite(filepath, orig)
+            cv2.putText(orig, label, (startX, y), cv2.FONT_HERSHEY_SIMPLEX,
+            0.65, (0, 255, 0), 2)
 
-                cv2.putText(orig, label, (startX, y), cv2.FONT_HERSHEY_SIMPLEX,
-                0.65, (0, 255, 0), 2)
+            orig = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB)
+            orig = Image.fromarray(orig)
 
-                orig = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB)
-                orig = Image.fromarray(orig)
-
-                #put detections from this round into queue
-                detection = Detection(
-                    label = label, 
-                    conf = 0,
-                    b_box = (startX, startY, endX, endY)
-                    )
-                result_q.put(detection)
-                return av.VideoFrame.from_image(orig)
-            else: 
-                #TODO: 
-                #Add the drawn on with the most frequent label
-                pass
+            #put detections from this round into queue
+            detection = Detection(
+                label = label, 
+                conf = 0,
+                b_box = (startX, startY, endX, endY)
+                )
+            result_q.put(detection)
+            return av.VideoFrame.from_image(orig)
         
-        st.write("If the video capture is satisfactory, move on to view the results!", value = False)
+        st.write("Take out your items and let us know when you are ready!", value = False)
         labels_placeholder = st.empty()
         key_lst = []
+        playing = st.checkbox("Start/stop video recognition", value=False)
+
         webrtc_ctx = webrtc_streamer(
             key="object-detection",
             mode=WebRtcMode.SENDRECV,
+            desired_playing_state=playing,
             video_frame_callback=video_frame_callback,
             media_stream_constraints={"video": True, "audio": False},
             rtc_configuration={"iceServers": get_ice_servers()},
@@ -236,13 +228,44 @@ if format_name == format_list[0]:
                 label_value = max(set(result), key=result.count)
                 #label_value = get_max_label(result)
                 #st.write(key_lst[-1])
-                labels_placeholder.text_input("Object Label:", f"{label_value}", key = key_lst[-1])
+                labels_placeholder.text_input("Most Frequent Object Label (at point of capture):", f"{label_value}", key = key_lst[-1])
+                with open(r"writer\Label.txt", "w") as text_file:
+                    text_file.write(f"{label_value}")
+
+        if playing == False: 
+            #labels_placeholder = st.empty()
+            try: 
+                with open(r"writer\Label.txt", "r") as text_file:
+                    contents = text_file.read()
+                labels_placeholder.text_input("Most Recent Object Label Logged:", f"{contents}")
+            except: 
+                labels_placeholder.text_input("Most Recent Object Label Logged:", "")
+            
+            submit_button = st.button("Submit and restart video capture?", on_click=restart)
+            relab_button = st.button("I need to relabel this object")
+            if relab_button: 
+                st.session_state.page = 2
+    
     elif st.session_state.page == 2: 
         with open(r"writer\Label.txt") as f:
             contents = f.read()
-        st.text_input("Label of the object:", f"{contents}")
-        st.image(r"writer\Img.png")
-        rerun_butt = st.button("Restart the video capture?", on_click = restart)
+        #st.text_input("Label of the object:", f"{contents}")
+        product_dd = st.selectbox("Relabel the product type:", ["cookies","crackers","sardines", "Baked beans", "Others"])
+
+        weight_dd = st.selectbox("Relabel the product weight:", 
+                                ["1g-99g", "100g-199g", "200g-299g",
+                                "300g-399g", "400g-499g", "500g-599g",
+                                "600g-699g", "700g-799g", "800g-899g",
+                                "900g-999g", "1kg-1.99kg", "2kg-2.99kg",
+                                "3kg-3.99kg", "4kg-4.99kg", ">5kg"])
+        Halal = st.selectbox("Relabel the product's Halal certification:", ["Halal", "NonHalal"])
+
+        img = cv2.imread(r"writer\Img.png")
+        img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+        img = cv2.putText(img, contents, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+        st.write("Current capture:")
+        st.image(img)
+        rerun_butt = st.button("Submit and restart the video capture", on_click = restart)
         if rerun_butt: 
             st.experimental_rerun()
     
