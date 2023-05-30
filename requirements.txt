@@ -11,3 +11,4 @@ torchvision==0.15.1
 scikit-learn==1.2.2
 twilio
 pyautogui
+MouseInfo
