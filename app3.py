@@ -124,10 +124,12 @@ if format_name == format_list[0]:
     if "page" not in st.session_state:
         st.session_state.page = 0
 
-    def nextpage(): st.session_state.page += 1
+    def nextpage(): 
+        st.session_state.page += 1
+
     def restart(): 
         st.session_state.page = 0
-        st.experimental_rerun()
+        #st.experimental_rerun()
 
     placeholder = st.empty()
     st.button("Next",on_click=nextpage,disabled=(st.session_state.page > 3))
@@ -241,6 +243,7 @@ if format_name == format_list[0]:
         st.text_input("Label of the object:", f"{contents}")
         st.image(r"writer\Img.png")
         st.button("Restart the video capture?", on_click = restart)
+        st.experimental_rerun()
     
 if format_name == format_list[1]: 
     st.file_uploader("Upload Your Photos Here:")
